@@ -292,3 +292,175 @@
                 <div class="product-group" data-product-index="1">
                     <div class="product-header">
                         <span class="product-title">商品 1</span>
+                    </div>
+                    <div class="form-group">
+                        <label>商品名・品番</label>
+                        <input type="text" name="product1">
+                    </div>
+                    <div class="form-group">
+                        <label>型番</label>
+                        <input type="text" name="model1">
+                    </div>
+                    <div class="form-group">
+                        <label>数量</label>
+                        <input type="text" name="quantity1">
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="add-product-btn" onclick="addProduct()">+ 商品を追加</button>
+            
+            <div class="form-group">
+                <label>納品先</label>
+                <input type="text" name="deliveryLocation">
+            </div>
+            
+            <div class="form-group">
+                <label>納期希望</label>
+                <input type="date" name="deliveryDate">
+            </div>
+            
+            <div class="form-group">
+                <label>備考</label>
+                <textarea name="notes"></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">送信する</button>
+        </form>
+    </div>
+    
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <h2>✓ 送信完了</h2>
+            <p>お問い合わせいただきありがとうございます。<br>確認メールを送信いたしました。</p>
+            <button class="close-btn" onclick="closeModal()">閉じる</button>
+        </div>
+    </div>
+    
+    <script>
+        let productCount = 1;
+        let currentEmail = '';
+        
+        async function searchCustomer() {
+            const email = document.getElementById('searchEmail').value;
+            if (!email) return;
+            
+            try {
+                const response = await fetch(`/customer/${encodeURIComponent(email)}`);
+                if (response.ok) {
+                    const customer = await response.json();
+                    document.querySelector('[name="companyName"]').value = customer.companyName;
+                    document.querySelector('[name="contactName"]').value = customer.contactName;
+                    document.querySelector('[name="email"]').value = email;
+                    document.querySelector('[name="phone"]').value = customer.phone || '';
+                    currentEmail = email;
+                    loadFavorites(email);
+                } else {
+                    alert('顧客情報が見つかりません');
+                }
+            } catch (error) {
+                console.error('エラー:', error);
+            }
+        }
+        
+        async function loadFavorites(email) {
+            try {
+                const response = await fetch(`/favorites/${encodeURIComponent(email)}`);
+                if (response.ok) {
+                    const favorites = await response.json();
+                    if (favorites.length > 0) {
+                        const favSection = document.getElementById('favoritesSection');
+                        const favList = document.getElementById('favoritesList');
+                        favList.innerHTML = '';
+                        
+                        favorites.forEach((fav, index) => {
+                            const div = document.createElement('div');
+                            div.className = 'favorite-item';
+                            div.textContent = `${fav.product} / ${fav.model}`;
+                            div.onclick = () => useFavorite(fav);
+                            favList.appendChild(div);
+                        });
+                        
+                        favSection.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                console.error('エラー:', error);
+            }
+        }
+        
+        function useFavorite(fav) {
+            if (productCount < 5) {
+                addProduct();
+            }
+            document.querySelector(`[name="product${productCount}"]`).value = fav.product;
+            document.querySelector(`[name="model${productCount}"]`).value = fav.model;
+        }
+        
+        function addProduct() {
+            if (productCount >= 5) {
+                alert('商品は最大5つまでです');
+                return;
+            }
+            
+            productCount++;
+            const container = document.getElementById('productsContainer');
+            const newProduct = document.createElement('div');
+            newProduct.className = 'product-group';
+            newProduct.dataset.productIndex = productCount;
+            newProduct.innerHTML = `
+                <div class="product-header">
+                    <span class="product-title">商品 ${productCount}</span>
+                    <button type="button" class="remove-btn" onclick="removeProduct(this)">削除</button>
+                </div>
+                <div class="form-group">
+                    <label>商品名・品番</label>
+                    <input type="text" name="product${productCount}">
+                </div>
+                <div class="form-group">
+                    <label>型番</label>
+                    <input type="text" name="model${productCount}">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="text" name="quantity${productCount}">
+                </div>
+            `;
+            container.appendChild(newProduct);
+        }
+        
+        function removeProduct(btn) {
+            btn.closest('.product-group').remove();
+        }
+        
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    document.getElementById('successModal').style.display = 'flex';
+                    e.target.reset();
+                } else {
+                    alert('送信に失敗しました');
+                }
+            } catch (error) {
+                console.error('エラー:', error);
+                alert('送信に失敗しました');
+            }
+        });
+        
+        function closeModal() {
+            document.getElementById('successModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
